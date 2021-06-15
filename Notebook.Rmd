@@ -1,3 +1,8 @@
+---
+output:
+  html_document: default
+  pdf_document: default
+---
 
 # GWAS in PGx
 
@@ -5,26 +10,37 @@ Greg McInnes
 May 23, 2021
 
 
+This notebook contains the code to reproduce figures for the manuscript "Genome-wide Association Studies in Pharmacogenomics". It also contains code and figures for a more exploratory analysis of the data in [GWAS Catalog](https://www.ebi.ac.uk/gwas/) with an emphasis on pharmacogenomics.
+
+
 ## Setup
+
+# Set your working directory. **Change this to work on your own machine**
+```{r setup}
+working_directory = "/Users/gregmcinnes/projects/gwas_in_pgx/repo/"
+knitr::opts_knit$set(root.dir = working_directory)
+```
+
 
 ### Load packages
 ```{r, echo=FALSE}
 library(tidyverse)
 library(lubridate)
-library(qqman)
 library(ggrepel)
+library(scales)
 ```
 
 
 ### Read in GWAS Catalog data
 
 The files from GWAS Catalog were retrieved using the jupyter notebook from the publication ["A sciometric review of genome-wide assication studies"](https://github.com/crahal/GWASReview).  These files can also be obtained directly from the [GWAS Catalog](https://www.ebi.ac.uk/gwas/docs/file-downloads).
+
 ```{r}
 # Load the files
-cat_map <- read.table("/Users/gregmcinnes/projects/gwas_in_pgx/data/gwas_catalog/Cat_Map.tsv", sep="\t", header=T, quote="")
-cat_full <- read.table("/Users/gregmcinnes/projects/gwas_in_pgx/data/gwas_catalog/Cat_Full.tsv", sep="\t", header=T, quote="")
-cat_anc <- read.table("/Users/gregmcinnes/projects/gwas_in_pgx/data/gwas_catalog/Cat_Anc.tsv", sep="\t", header=T, quote="")
-cat_study <- read.table("/Users/gregmcinnes/projects/gwas_in_pgx/data/gwas_catalog/Cat_Stud.tsv", sep="\t", header=T, quote="")
+cat_map <- read.table("data/Cat_Map.tsv", sep="\t", header=T, quote="")
+cat_full <- read.table("data/Cat_Full.tsv", sep="\t", header=T, quote="")
+cat_anc <- read.table("data/Cat_Anc.tsv", sep="\t", header=T, quote="")
+cat_study <- read.table("data/Cat_Stud.tsv", sep="\t", header=T, quote="")
 
 # Reformat the date columns
 cat_full <- cat_full %>%
@@ -38,7 +54,7 @@ cat_study <- cat_study %>%
 
 Load the annotated study details from the curated PGx GWAS
 ```{r}
-study_details <- read.table("/Users/gregmcinnes/projects/gwas_in_pgx/data/pgx_gwas_description_current.tsv", header=T, sep="\t", fill=T, quote='', comment.char = "")
+study_details <- read.table("data/pgx_gwas_description_current.tsv", header=T, sep="\t", fill=T, quote='', comment.char = "")
 
 # Add the publication date to the curated data
 study_details <- study_details %>%
@@ -48,13 +64,13 @@ study_details <- study_details %>%
 study_details %>% head
 ```
 
-Load ATC code descriptions.
+Load ATC code descriptions
 ```{r}
-atc_codes <- read.table("/Users/gregmcinnes/projects/gwas_in_pgx/data/atc_map.tsv", sep="\t", header=T) %>% rename(atc_description=Preferred.Label)
+atc_codes <- read.table("data/atc_map.tsv", sep="\t", header=T) %>% rename(atc_description=Preferred.Label)
 atc_codes %>% head
 ```
 
-Set the plot theme
+Set the plot theme. Derived from [here](https://rpubs.com/Koundy/71792).
 
 ```{r}
 theme_Publication <- function(base_size=14, base_family="Helvetica") {
@@ -102,18 +118,13 @@ scale_colour_Publication <- function(...){
 ```
 
 
-
-
 ## PGx Analysis
 
+This first part has some general exploratory analysis and figures to better understand the data
 
+### General publication trends
 
-
-#### Number of published PGx GWAS papers over time
-
-
-
-
+Number of published PGx GWAS papers over time
 
 ```{r}
 study_details %>%
@@ -127,7 +138,7 @@ study_details %>%
   xlab("Year") +
   theme(panel.grid.major.x  = element_blank())
 
-ggsave("/Users/gregmcinnes/projects/gwas_in_pgx/manuscript/figures/pgx_gwas_count.png", width=6, height=4)
+ggsave("figures/pgx_gwas_count.png", width=6, height=4)
 ```
 
 Show the counts of papers over time, sorted.
@@ -142,9 +153,7 @@ study_details %>%
   arrange(-n)
 ```
 
-
-
-#### All GWAS over Time
+Plot all GWAS over time. Color PGx and all other GWAS separately.
 
 ```{r}
 cat_full %>%
@@ -165,11 +174,11 @@ cat_full %>%
   theme(panel.grid.major.x  = element_blank()) +
   labs(fill="")
   
-ggsave("/Users/gregmcinnes/projects/gwas_in_pgx/manuscript/figures/gwas_catalog_counts.png", width=6, height=4)
+ggsave("figures/gwas_catalog_counts.png", width=6, height=4)
 ```
 
 
-
+Calculate the proportion of studies each year that were PGx each year
 
 ```{r}
 cat_study %>%
@@ -197,14 +206,14 @@ cat_study %>%
   scale_y_continuous(labels = scales::percent_format(accuracy = 1))
   
 
-ggsave("/Users/gregmcinnes/projects/gwas_in_pgx/manuscript/figures/pgx_gwas_fraction.png", width=6, height=4)
+ggsave("figures/pgx_gwas_fraction.png", width=6, height=4)
 ```
 
 
 
-#### What percent of all entries are PGx
-```{r}
+Determine what percent PGx GWAS are of the total
 
+```{r}
 total_gwas_count <- cat_study %>%
   select(PUBMEDID) %>%
   unique %>%
@@ -214,47 +223,46 @@ pgx_gwas_count = cat_study %>%
   filter(PUBMEDID %in% study_details$pubmed_id) %>%
   select(PUBMEDID) %>%
   unique %>%
-  nrow 
+  nrow
 
 (pgx_gwas_count / total_gwas_count) * 100
-
 ```
 
-8.2% of all GWAS papers in GWAS Catalog are PGx related
+~8.2% of all GWAS papers in GWAS Catalog are PGx related
 
 
 
 
-Drug classes
+### Drug classes
 
+Which drug classes are the most studied? Add ATC codes to each study and determine the frequency of each ATC code.
 
-
-```{r}
+```{r message=FALSE, warning=FALSE}
 study_details %>%
   mutate(ATC = substr(atc, 1, 3)) %>%
   left_join(atc_codes %>% select(ATC, atc_description)) %>%
   ungroup %>%
-  filter(ATC!="") %>%
+  filter(ATC != "") %>%
   group_by(ATC) %>%
   tally %>%
-  #mutate(ATC = factor(ATC, levels=atc_sorted)) %>%
   ggplot(aes(reorder(ATC, n), n)) +
-  geom_bar(stat="identity") +
-  #scale_x_discrete(limits = rev(levels(atc_sorted))) +
+  geom_bar(stat = "identity") +
   coord_flip() +
   theme_bw() +
   ggtitle("Number of GWAS for ATC Level 3") +
-    theme_Publication() +
+  theme_Publication() +
   scale_colour_Publication() +
-    theme(panel.grid.major.y  = element_blank()) +
+  theme(panel.grid.major.y  = element_blank()) +
   xlab("ATC code") +
   ylab("Count")
 
-ggsave("/Users/gregmcinnes/projects/gwas_in_pgx/manuscript/figures/atc_gwas_counts.png", width=5, height=6.5)
+ggsave("figures/atc_gwas_counts.png",
+       width = 5,
+       height = 6.5)
 ```
 
-
-```{r}
+Color the ATC codes each year
+```{r message=FALSE, warning=FALSE}
 study_details %>%
   mutate(ATC = substr(atc, 1, 1)) %>%
   left_join(atc_codes %>% select(ATC, atc_description)) %>%
@@ -267,7 +275,7 @@ study_details %>%
 ```
 
 
-Number of significant hits
+### Significant associatoins in PGx GWAS
 
 What fraction of papers have significant hits
 ```{r}
@@ -284,7 +292,7 @@ Only 44% of papers have a significant hit
 
 #### Has the fraction of papers with significant hits changed over time
 
-```{r}
+```{r message=FALSE, warning=FALSE}
 papers_with_significant_hits <- cat_full %>%
   filter(PUBMEDID %in% study_details$pubmed_id) %>%
   filter(P.VALUE < 5e-08) %>%
@@ -293,89 +301,109 @@ papers_with_significant_hits <- cat_full %>%
   pull
 
 study_details %>%
-  mutate(significant = case_when(pubmed_id %in% papers_with_significant_hits ~ "Significant hits", T~"No significant hits")) %>%
+  mutate(
+    significant = case_when(
+      pubmed_id %in% papers_with_significant_hits ~ "Significant hits",
+      T ~ "No significant hits"
+    )
+  ) %>%
   unique %>%
-  ggplot(aes(year, fill=significant)) +
-  geom_bar(position="fill") +
+  ggplot(aes(year, fill = significant)) +
+  geom_bar(position = "fill") +
   theme_bw() +
   ggtitle("Fraction of PGx GWAS Publications with Significant Hits") +
   ylab("Count") +
   xlab("Year") +
-  theme_Publication(base_size=12) +
+  theme_Publication(base_size = 12) +
   scale_fill_Publication() +
-  labs(fill="")
+  labs(fill = "")
 
-ggsave("/Users/gregmcinnes/projects/gwas_in_pgx/manuscript/figures/pgx_gwas_fraction_significant.png", width=6, height=4)
+ggsave("figures/pgx_gwas_fraction_significant.png",
+       width = 6,
+       height = 4)
 ```
-Not really.  Kind of increases I guess.  Probably associated with sample size
 
-#### How many drug classes / drugs have significant hits
-```{r}
+How many drug classes / drugs have significant hits
+```{r message=FALSE, warning=FALSE}
 study_details %>%
-  mutate(significant = case_when(pubmed_id %in% papers_with_significant_hits ~ "Significant hits", T~"No significant hits")) %>%
+  mutate(
+    significant = case_when(
+      pubmed_id %in% papers_with_significant_hits ~ "Significant hits",
+      T ~ "No significant hits"
+    )
+  ) %>%
   mutate(ATC = substr(atc, 1, 3)) %>%
   unique %>%
   left_join(atc_codes %>% select(ATC, atc_description)) %>%
-  ggplot(aes(ATC, fill=significant)) +
+  ggplot(aes(ATC, fill = significant)) +
   geom_bar() +
   coord_flip() +
   theme_bw() +
   ggtitle("PGx GWAS by ATC Code") +
   ylab("Count") +
   xlab("ATC") +
-    theme_Publication(base_size=12) +
+  theme_Publication(base_size = 12) +
   scale_fill_Publication() +
-  labs(fill="")
-
-#ggsave("/Users/gregmcinnes/projects/gwas_in_pgx/manuscript/figures/atc_gwas_counts.png", width=5, height=6.5)
+  labs(fill = "")
 ```
-```{r}
 
+That looks good, but lets sort it so it's a bit more interpretable.
+```{r message=FALSE, warning=FALSE}
 atc_totals <- study_details %>%
-  mutate(significant = case_when(pubmed_id %in% papers_with_significant_hits ~ "Significant hits", T~"No significant hits")) %>%
+  mutate(
+    significant = case_when(
+      pubmed_id %in% papers_with_significant_hits ~ "Significant hits",
+      T ~ "No significant hits"
+    )
+  ) %>%
   mutate(ATC = substr(atc, 1, 3)) %>%
   left_join(atc_codes %>% select(ATC, atc_description)) %>%
   ungroup %>%
-  filter(ATC!="") %>%
+  filter(ATC != "") %>%
   group_by(ATC, significant) %>%
   tally %>%
   ungroup %>%
   group_by(ATC) %>%
-  summarize(total=sum(n))
+  summarize(total = sum(n))
 
 study_details %>%
-  mutate(significant = case_when(pubmed_id %in% papers_with_significant_hits ~ "Significant hits", T~"No significant hits")) %>%
+  mutate(
+    significant = case_when(
+      pubmed_id %in% papers_with_significant_hits ~ "Significant hits",
+      T ~ "No significant hits"
+    )
+  ) %>%
   mutate(ATC = substr(atc, 1, 3)) %>%
   left_join(atc_codes %>% select(ATC, atc_description)) %>%
   ungroup %>%
-  filter(ATC!="") %>%
+  filter(ATC != "") %>%
   group_by(ATC, significant) %>%
   tally %>%
   left_join(atc_totals) %>%
-  ggplot(aes(reorder(ATC, total), n, fill=significant)) +
-  geom_bar(stat='identity') +
+  ggplot(aes(reorder(ATC, total), n, fill = significant)) +
+  geom_bar(stat = 'identity') +
   coord_flip() +
   theme_bw() +
   ggtitle("PGx GWAS by ATC Code") +
   ylab("Count") +
   xlab("ATC") +
-    theme_Publication(base_size=12) +
+  theme_Publication(base_size = 12) +
   scale_fill_Publication() +
-  labs(fill="")
+  labs(fill = "")
 
-ggsave("/Users/gregmcinnes/projects/gwas_in_pgx/manuscript/figures/atc_gwas_counts_w_hits.png", width=5, height=6.5)
+ggsave("figures/atc_gwas_counts_w_hits.png",
+       width = 5,
+       height = 6.5)
 ```
 
 
-
-Side effects vs Efficacy
-```{r}
+Which types of endpoints are studied for each drug class?
+```{r message=FALSE, warning=FALSE}
 study_details %>%
-  #mutate(significant = case_when(pubmed_id %in% papers_with_significant_hits ~ "Significant hits", T~"No significant hits")) %>%
   mutate(ATC = substr(atc, 1, 3)) %>%
   unique %>%
   left_join(atc_codes %>% select(ATC, atc_description)) %>%
-  ggplot(aes(ATC, fill=phenotype)) +
+  ggplot(aes(ATC, fill = phenotype)) +
   geom_bar() +
   coord_flip() +
   theme_bw() +
@@ -384,7 +412,7 @@ study_details %>%
   xlab("ATC")
 ```
 
-Maybe some sort of manhattan plot for ATC groups?  A sort of meta analysis
+Get all the significant hits from all PGx studies
 ```{r}
 pgx_gwas_hits <- cat_full %>%
   filter(PUBMEDID %in% study_details$pubmed_id) %>%
@@ -411,14 +439,11 @@ pgx_gwas_hits <- cat_full %>%
 ```
 
 
-
-
-
-for each chapter, number of studies, number of significant hits, by phenotype
-```{r}
+Count the number of studies and significant hits for each ATC chapter.
+```{r message=FALSE, warning=FALSE}
 hit_count <- pgx_gwas_hits %>%
   mutate(significant = P < 5e-08) %>%
-  mutate(counter=1) %>%
+  mutate(counter = 1) %>%
   group_by(ATC, atc_description, phenotype, CHR, BP) %>%
   unique %>%
   ungroup %>%
@@ -427,140 +452,143 @@ hit_count <- pgx_gwas_hits %>%
 
 study_count <- pgx_gwas_hits %>%
   mutate(significant = case_when(P < 5e-08 ~ 1, T ~ 0)) %>%
-  mutate(counter=1) %>%
-  select(PUBMEDID, ATC, atc_description, phenotype, counter, significant) %>% 
+  mutate(counter = 1) %>%
+  select(PUBMEDID, ATC, atc_description, phenotype, counter, significant) %>%
   group_by(PUBMEDID, ATC, atc_description, phenotype) %>%
   filter(significant == max(significant)) %>%
   unique %>%
   ungroup %>%
   group_by(ATC, atc_description, phenotype) %>%
-  select(ATC, atc_description, phenotype, counter, significant) %>% 
+  select(ATC, atc_description, phenotype, counter, significant) %>%
   summarize(n_studies = sum(counter),
             n_studies_sig = sum(significant))
 
-study_count %>%
-  left_join(hit_count) %>%
-  filter(ATC %in% atc_groups) %>%
-  arrange(-n_studies)
-  
-#pgx_gwas_hits_scaled %>%
-#  filter(ATC == "L01") %>%
-#  select(PUBMEDID) %>%
-#  unique
 ```
-turn this into a figure
+Let's turn that into a figure so it's a little easier to look at. We'll focus on side effects and efficacy.
 
-```{r}
-
+```{r message=FALSE, warning=FALSE}
 atc_order <- study_count %>%
   ungroup %>%
-    filter(phenotype %in% c("side effects", "efficacy")) %>%
+  filter(phenotype %in% c("side effects", "efficacy")) %>%
   select(ATC, n_studies) %>%
   group_by(ATC) %>%
-  summarize(n=sum(n_studies)) %>%
+  summarize(n = sum(n_studies)) %>%
   arrange(n) %>%
   select(ATC) %>%
-  tail(n=25) %>%
+  tail(n = 25) %>%
   pull
 
 study_count %>%
-  #left_join(hit_count) %>%
-  #filter(ATC %in% atc_groups) %>%
   filter(ATC %in% atc_order) %>%
-  mutate(ATC = ordered(ATC, levels=atc_order)) %>%
+  mutate(ATC = ordered(ATC, levels = atc_order)) %>%
   arrange(-n_studies) %>%
   filter(phenotype %in% c("side effects", "efficacy")) %>%
   mutate(n_insig = n_studies - n_studies_sig) %>%
   select(-n_studies) %>%
-  pivot_longer(cols=c("n_studies_sig", "n_insig")) %>%
-  mutate(plot_name = case_when(name=="n_studies_sig" ~ "Significant hits", T~"No significant hits")) %>%
-    ggplot(aes(ATC, value, fill=plot_name)) +
-  geom_bar(stat="identity") +
-  facet_grid(.~phenotype) +
+  pivot_longer(cols = c("n_studies_sig", "n_insig")) %>%
+  mutate(plot_name = case_when(
+    name == "n_studies_sig" ~ "Significant hits",
+    T ~ "No significant hits"
+  )) %>%
+  ggplot(aes(ATC, value, fill = plot_name)) +
+  geom_bar(stat = "identity") +
+  facet_grid(. ~ phenotype) +
   coord_flip() +
-  #theme_bw() +
   ylab("ATC Code") +
   ylab("Number of studies") +
   ggtitle("Number of PGx GWAS publications") +
   scale_fill_discrete(name = "Study findings") +
-  theme_Publication(base_size=12) +
+  theme_Publication(base_size = 12) +
   scale_fill_Publication() +
-  labs(fill="")
+  labs(fill = "")
 
-ggsave("/Users/gregmcinnes/projects/gwas_in_pgx/manuscript/figures/atc_gwas_counts_w_hits_phenotype.png", width=5, height=6.5)
+ggsave(
+  "figures/atc_gwas_counts_w_hits_phenotype.png",
+  width = 5,
+  height = 6.5
+)
 ```
 
 
 
 
-Do LD pruning to calculate the cummulative number of SNPs per year.
+### Novel Associations
+
+In order to assess the number of novel associations discovered each year we will need to perform linkage disequilibrium (LD) pruning to ensure that we aren't double counting SNPs that are just tightly linked in LD. To do this we'll use the package LDlinkR which calculates LD based on 1000 Genomes.
+
+To run this code you will need your own token to access the LDlinkR servers. You can find instructions to obtain that here:
+https://cran.r-project.org/web/packages/LDlinkR/vignettes/LDlinkR.html
+
+Alternatively you can load the pre-pruned data used in the manuscript.
+
+*NOTE* This step takes a considerable amount of time to run. I only recommend doing this if you want to update pruning data for a fresh analysis in the future. You can load the pre-pruned SNPs using the following block and skip the pruning step if you want to replicate the data in the manuscript.
+
+```{r}
+# LOAD THIS FILE AND SKIP THE NEXT CODE BLOCK IF YOU DO NOT NEED TO RECOMPUTE PRUNING
+all_pruned_data <- read.table("data/cummulative_associations.txt", header=T, sep="\t")
+```
 
 
+Load LDlinkR and set the token
 ```{r}
 library(LDlinkR)
 my_token = '446ccd8dc47a'
 ```
 
-
-
-
-
+Define a function to perform LD pruning. We will keep only the SNP with the most significant association for each drug class.
 ```{r}
 prune_snps <- function(snp_df) {
-  
-  if(nrow(snp_df) < 2) {
+  if (nrow(snp_df) < 2) {
     return(c())
   }
   
-  snp_list <- snp_df %>% ungroup %>% select(rsid) %>% unique %>% pull
-
-  all_pops <- list_pop()$pop_code
-  correlation_df <- LDmatrix(snp_list, pop =  all_pops, r2d = "r2", token = my_token, file = FALSE)
+  snp_list <-
+    snp_df %>% ungroup %>% select(rsid) %>% unique %>% pull
   
-  correlation_matrix <- as.matrix(correlation_df %>% remove_rownames %>% column_to_rownames(var="RS_number"))
+  all_pops <- list_pop()$pop_code
+  correlation_df <-
+    LDmatrix(
+      snp_list,
+      pop =  all_pops,
+      r2d = "r2",
+      token = my_token,
+      file = FALSE
+    )
+  
+  correlation_matrix <-
+    as.matrix(correlation_df %>% remove_rownames %>% column_to_rownames(var = "RS_number"))
   diag(correlation_matrix) <- 0
   
-  #data.frame(correlation_matrix) %>%
-  #  filter_all(all_vars(. > 0.0001))
-  
-  #ld_index <- which(correlation_matrix > 0.5)
-  
-  
-  #cols <- ld_index %% ncol(correlation_matrix) %>% unique %>% sort 
-  #rows <- round(ld_index / ncol(correlation_matrix)) %>% unique  %>% sort + 1
-  
-  #in_ld <- correlation_matrix[rows, cols]
-  
-  #rsids <- colnames(in_ld)
   rsids <- colnames(correlation_matrix)
   
-  if(length(rsids) < 2) {
+  if (length(rsids) < 2) {
     return(c())
   }
   
   if (length(rsids) > 0) {
     ld_data <- data.frame()
-    for(i in 1:length(rsids)) {
+    for (i in 1:length(rsids)) {
       rsid_1 = rsids[i]
-      r1_p <- snp_df %>% filter(rsid == rsid_1) %>% group_by(rsid) %>% filter(P == min(P)) %>% select(P) %>% pull
-      for(j in 1:length(rsids)) {
+      r1_p <-
+        snp_df %>% filter(rsid == rsid_1) %>% group_by(rsid) %>% filter(P == min(P)) %>% select(P) %>% pull
+      for (j in 1:length(rsids)) {
         rsid_2 = rsids[j]
-        #print(paste(r1, r2))
         if (rsid_1 != rsid_2) {
-          r2_p <- snp_df %>% filter(rsid == rsid_2) %>% group_by(rsid) %>% filter(P == min(P)) %>% select(P) %>% pull
+          r2_p <-
+            snp_df %>% filter(rsid == rsid_2) %>% group_by(rsid) %>% filter(P == min(P)) %>% select(P) %>% pull
           # add r1 and r2 to data frame, with the r2 value and the p.value and which one is the minimum
-          # I can figure out later how to deal with it in data frame form
-          r2 = correlation_matrix[rsid_1,rsid_2]
-          #print(rsid_1)
-          #print(rsid_2)
-          #print(r2)
-          #print(r1_p)
-          #print(r2_p)
-          new <- data.frame(rsid_1=rsid_1, rsid_2=rsid_2, r2=r2, rsid_1_p=r1_p, rsid_2_p=r2_p)
-          #print(new)
+          r2 = correlation_matrix[rsid_1, rsid_2]
+          new <-
+            data.frame(
+              rsid_1 = rsid_1,
+              rsid_2 = rsid_2,
+              r2 = r2,
+              rsid_1_p = r1_p,
+              rsid_2_p = r2_p
+            )
           ld_data <- bind_rows(ld_data, new)
           
-           
+          
         }
       }
     }
@@ -572,7 +600,7 @@ prune_snps <- function(snp_df) {
       mutate(min_rsid = case_when(rsid_1_p <= rsid_2_p ~ rsid_1,
                                   rsid_2_p < rsid_1_p ~ rsid_2)) %>%
       mutate(discard = case_when(rsid_1_p <= rsid_2_p ~ rsid_2,
-                                  rsid_2_p < rsid_1_p ~ rsid_1)) 
+                                 rsid_2_p < rsid_1_p ~ rsid_1))
     
     discards <- ld_data %>%
       select(discard) %>%
@@ -580,17 +608,17 @@ prune_snps <- function(snp_df) {
       pull
     
     
-    ld_data %>% 
-      filter(! min_rsid %in% discards)
+    ld_data %>%
+      filter(!min_rsid %in% discards)
     
     print(discards)
     return(discards)
-      
+    
   } else {
     #print("No snps in LD")
     return(c())
   }
-    
+  
 }
 
 ```
@@ -598,17 +626,14 @@ prune_snps <- function(snp_df) {
 
 
 
-Ok, now what I want to do is for each ATC group get the unique SNPs that have been discovered each year. 
-Then each year also check for snps that have been discovered in previous years. Check for those after pruning.
-```{r}
-
+Ok, now what we will do is for each ATC group get the unique SNPs that have been discovered each year. Then each year also check for SNPs that have been discovered in previous years. Check for those after pruning.
+```{r, message=FALSE, warning=FALSE, eval=FALSE}
 pruning_data <- pgx_gwas_hits %>%
   filter(P <= 5e-08) %>%
-  mutate(year=year(DATE)) %>%
-  select(CHR, BP, rsid, year, ATC, P) %>% 
-  #group_by(PUBMEDID, ATC, atc_description, phenotype) %>%
+  mutate(year = year(DATE)) %>%
+  select(CHR, BP, rsid, year, ATC, P) %>%
   group_by(CHR, BP, ATC, year) %>%
-  filter(P==min(P)) %>%
+  filter(P == min(P)) %>%
   filter(ATC != "") %>%
   unique
 
@@ -623,23 +648,25 @@ all_pruned_data <- data.frame()
 for (i in 1:length(atc_groups)) {
   code = atc_groups[i]
   print(code)
-  code_data <- pruning_data %>% filter(ATC == code) %>% arrange(CHR, BP)
+  code_data <-
+    pruning_data %>% filter(ATC == code) %>% arrange(CHR, BP)
   pruned_code_data <- data.frame()
-  years <- code_data %>% ungroup %>% select(year) %>% arrange(year) %>% unique %>% pull
+  years <-
+    code_data %>% ungroup %>% select(year) %>% arrange(year) %>% unique %>% pull
   for (j in 1:length(years)) {
     y = years[j]
     print(y)
-    chromosomes <- code_data %>% ungroup %>% filter(year == y) %>% select(CHR) %>% unique %>% pull
+    chromosomes <-
+      code_data %>% ungroup %>% filter(year == y) %>% select(CHR) %>% unique %>% pull
     for (k in 1:length(chromosomes)) {
       chr = chromosomes[k]
-      #print(chr)
       prune_data <- code_data %>% ungroup %>% filter(year == y, CHR == chr) %>% unique
-      #print(prune_data)
       discards <- prune_snps(prune_data)
-      # Remove LD SNPs 
+      # Remove LD SNPs
       prune_data <- prune_data %>% filter(!rsid %in% discards)
       # Remove previously identified SNPs
-      prune_data <- prune_data %>%filter(!rsid %in% pruned_code_data$rsid)
+      prune_data <-
+        prune_data %>% filter(!rsid %in% pruned_code_data$rsid)
       # Add to existings data
       pruned_code_data <- bind_rows(pruned_code_data, prune_data)
     }
@@ -650,69 +677,67 @@ for (i in 1:length(atc_groups)) {
 ```
 
 
-
-
+Save the pruned data
 ```{r}
-write.table(all_pruned_data, file="/Users/gregmcinnes/projects/gwas_in_pgx/data/cummulative_associations.txt", row.names = F, quote=F, sep="\t")
-all_pruned_data <- read.table("/Users/gregmcinnes/projects/gwas_in_pgx/data/cummulative_associations.txt", header=T, sep="\t")
+write.table(all_pruned_data, file="data/cummulative_associations.txt", row.names = F, quote=F, sep="\t")
 ```
 
 
+Plot the number of newly discovered associations each year.
 ```{r}
 all_pruned_data %>%
   group_by(year) %>%
   tally %>%
   mutate(cummulative_snps = cumsum(n)) %>%
   ggplot(aes(year, cummulative_snps)) +
-  geom_point(size=2) +
+  geom_point(size = 2) +
   geom_line() +
-  scale_x_continuous(labels=c(2008, 2010, 2012, 2014, 2016, 2018, 2020), breaks=c(2008, 2010, 2012, 2014, 2016, 2018, 2020)) +
+  scale_x_continuous(
+    labels = c(2008, 2010, 2012, 2014, 2016, 2018, 2020),
+    breaks = c(2008, 2010, 2012, 2014, 2016, 2018, 2020)
+  ) +
   ylab("Cummulative SNP associations") +
   xlab("Year") +
   ggtitle("Cummulative PGx associations discovered through GWAS") +
   theme_bw() +
-  theme_Publication(base_size=12) +
+  theme_Publication(base_size = 12) +
   scale_fill_Publication() +
-  labs(fill="")
+  labs(fill = "")
 ```
 
 
-
-
-
-
-
-
+Plot the number of newly discovered associations each year for each drug class.
 ```{r}
-
 top_atc_codes <- all_pruned_data %>%
   group_by(ATC) %>%
-  tally %>% 
+  tally %>%
   arrange(-n) %>%
-  head(n=10) %>%
+  head(n = 10) %>%
   select(ATC) %>%
   pull
 
 top_atc_codes <- c(top_atc_codes, "Other")
 
 all_pruned_data %>%
-  mutate(ATC=case_when(ATC %in% top_atc_codes ~ ATC, T~"Other")) %>%
-  mutate(ATC = ordered(ATC, levels=top_atc_codes)) %>%
-  #filter(year == 2016) %>%
-  ggplot(aes(as.factor(year), fill=ATC)) +
+  mutate(ATC = case_when(ATC %in% top_atc_codes ~ ATC, T ~ "Other")) %>%
+  mutate(ATC = ordered(ATC, levels = top_atc_codes)) %>%
+  ggplot(aes(as.factor(year), fill = ATC)) +
   geom_bar() +
   theme_minimal() +
   ylab("Year") +
   ylab("Count") +
-  theme_Publication(base_size=12) +
-  #scale_fill_Publication() +
+  theme_Publication(base_size = 12) +
   scale_fill_brewer(palette = "Spectral") +
-  labs(fill="ATC") +
+  labs(fill = "ATC") +
   ylab("Number of new association") +
   xlab("Year") +
   ggtitle("Number of newly discovered PGx associations each year")
-  
-ggsave("/Users/gregmcinnes/projects/gwas_in_pgx/manuscript/figures/pgx_association_discovery_count.png", width=6, height=4)
+
+ggsave(
+  "figures/pgx_association_discovery_count.png",
+  width = 6,
+  height = 4
+)
 ```
 
 Total number of significant associations
@@ -721,7 +746,7 @@ all_pruned_data %>%
   nrow
 ```
 
-which are the most significant associations
+Which are the most significant associations
 ```{r}
 all_pruned_data %>% 
   arrange(P) %>%
@@ -729,16 +754,14 @@ all_pruned_data %>%
 ```
 
 
-Phenotypes studied
+Which types of endpoints are studied the most frequently?
 ```{r}
 study_details %>%
   select(pubmed_id, phenotype) %>%
   unique %>%
   group_by(phenotype) %>%
   tally %>%
-  #summarize(sum(n))
-  mutate(percent=n/310)
-  
+  mutate(percent = n / (study_details %>% select(pubmed_id) %>% unique %>% nrow))
 ```
 How often are individual drugs studied
 ```{r}
@@ -754,34 +777,37 @@ study_details %>%
 
 
 
-Number of studies vs number of associations
-```{r}
+What is the relationship between how many studies of a drug class there are and the number of significant associations?
+```{r message=FALSE, warning=FALSE}
 # Number of associations
 study_count_data <- all_pruned_data %>%
   group_by(ATC) %>%
   tally %>%
   rename(n_associations = n) %>%
   left_join(atc_totals) %>%
-  rename(n_studies=total) %>%
-  mutate(ATC_chapter = substr(ATC, 1, 1)) 
+  rename(n_studies = total) %>%
+  mutate(ATC_chapter = substr(ATC, 1, 1))
 
 ggplot(study_count_data, aes(n_studies, n_associations)) +
-  geom_point(aes(color=ATC_chapter), size=2.5) +
-    theme_Publication(base_size=12) +
-  #scale_fill_Publication() +
+  geom_point(aes(color = ATC_chapter), size = 2.5) +
+  theme_Publication(base_size = 12) +
   scale_fill_brewer(palette = "Spectral") +
   ylab("Number of associations") +
   xlab("Number of studies") +
   ggtitle("GWAS yield for drug categories") +
-  geom_text_repel(data = (study_count_data %>% filter(n_associations > 10)), aes(label=ATC), box.padding = 0.4) +
-  labs(color="ATC Level 1")
+  geom_text_repel(
+    data = (study_count_data %>% filter(n_associations > 10)),
+    aes(label = ATC),
+    box.padding = 0.4
+  ) +
+  labs(color = "ATC Level 1")
 
-ggsave("/Users/gregmcinnes/projects/gwas_in_pgx/manuscript/figures/atc_study_yield.png", width=6, height=4)
+ggsave("figures/atc_study_yield.png",
+       width = 6,
+       height = 4)
 ```
 
-
-
-
+### Other miscellaneous analyses
 
 Most studied drugs
 ```{r}
@@ -802,19 +828,19 @@ study_details %>%
   head
 ```
 
-
+How do PGx GWAS compare to other GWAS in terms of sample size?
 
 ```{r}
-sample_size_data <- cat_anc %>% 
+sample_size_data <- cat_anc %>%
   group_by(STUDY.ACCESSION, PUBMEDID, STAGE, DATE) %>%
   filter(STAGE == "initial") %>%
-  summarize(n=sum(NUMBER.OF.INDIVDUALS)) %>%
+  summarize(n = sum(NUMBER.OF.INDIVDUALS)) %>%
   mutate(year = year(DATE)) %>%
   mutate(pgx = PUBMEDID %in% study_details$pubmed_id)
-  
-  
+
+
 ggplot(sample_size_data %>% filter(year < 2021), aes(as.factor(year), n)) +
-  geom_boxplot(aes(color=pgx)) +
+  geom_boxplot(aes(color = pgx)) +
   scale_y_log10() +
   theme_Publication() +
   ylab("Sample size (log scale)") +
@@ -822,7 +848,7 @@ ggplot(sample_size_data %>% filter(year < 2021), aes(as.factor(year), n)) +
   scale_colour_Publication() +
   ggtitle("GWAS sample size")
 ```
-
+What is the median sample size for PGx GWAS vs other GWAS?
 ```{r}
 sample_size_data %>%
   filter(pgx == F) %>%
@@ -832,17 +858,14 @@ sample_size_data %>%
 
 sample_size_data %>%
   ungroup %>%
-  #filter(pgx == T) %>%
   filter(year > 2015, year < 2021) %>%
   filter(!is.na(n)) %>%
-  #group_by(year, pgx) %>%
   group_by(pgx) %>%
   summarize(median(n))
 ```
 
-
+Which journals publish the most PGx GWAS?
 ```{r}
-#cat_full %>% 
 cat_study %>%
   filter(PUBMEDID %in% study_details$pubmed_id) %>%
   select(PUBMEDID, JOURNAL) %>%
@@ -863,25 +886,23 @@ cat_study %>%
 
 
 
-
-
-
+Which genotyping platforms are the most used?
 ```{r}
 cat_full %>%
   select(PUBMEDID, PLATFORM..SNPS.PASSING.QC.) %>%
   filter(PUBMEDID %in% study_details$pubmed_id) %>%
-  rename(platform=PLATFORM..SNPS.PASSING.QC.) %>%
+  rename(platform = PLATFORM..SNPS.PASSING.QC.) %>%
   unique %>%
-  separate(platform, c("platform", NA), sep="\\[") %>%
+  separate(platform, c("platform", NA), sep = "\\[") %>%
   ungroup %>%
   group_by(platform) %>%
   tally %>%
   arrange(-n)
 ```
 
-Count consortia
+Which consortia have led to the most publications?
 ```{r}
-consortia <- read.table("/Users/gregmcinnes/projects/gwas_in_pgx/papers/consortia_counts.tsv", sep="\t", header=T) 
+consortia <- read.table("data/consortia_counts.tsv", sep="\t", header=T) 
 
 consortia_ordered <- consortia %>% 
   arrange(-count) %>% 
@@ -905,55 +926,29 @@ consortia %>%
   theme(axis.text.x = element_text(angle = 45, vjust = 1, hjust=1))
 ```
 
-
+Which studies did the most significant SNPs come from?
 ```{r}
-study_details %>%
-  mutate(ATC = substr(atc, 1, 3)) %>%
-  filter(ATC == "L01") %>%
-  select(pubmed_id, measured_phenotype, phenotype, drug) %>%
-  unique %>%
-  group_by(drug) %>%
-  tally %>%
-  arrange(-n)
+most_significant_snps <- all_pruned_data %>%
+  arrange(P) %>%
+  head(n = 20) %>%
+  select(rsid) %>%
+  pull
 
-study_details %>%
-  mutate(ATC = substr(atc, 1, 3)) %>%
-  filter(ATC == "L01") %>%
-  select(pubmed_id, measured_phenotype, phenotype) %>%
-  unique %>%
-  group_by(phenotype) %>%
-  tally %>%
-  arrange(-n)
-
-study_details %>%
-  mutate(ATC = substr(atc, 1, 3)) %>%
-  filter(ATC == "L01") %>%
-  select(pubmed_id, measured_phenotype, phenotype) %>%
-  unique %>%
-  group_by(measured_phenotype, phenotype) %>%
-  tally %>%
-  arrange(-n)
-
-study_details %>%
-  mutate(ATC = substr(atc, 1, 3)) %>%
-  filter(ATC == "L01") %>%
-  mutate(atc_len = nchar(atc)) %>%
-  group_by(atc_len) %>%
-  tally
-  select(pubmed_id, measured_phenotype, phenotype) %>%
-  unique %>%
-  group_by(measured_phenotype, phenotype) %>%
-  tally %>%
-  arrange(-n)
-```
-```{r}
-most_significant_snps <- all_pruned_data %>% arrange(P) %>% head(n=20) %>% select(rsid) %>% pull
-
-cat_full %>% 
+cat_full %>%
   filter(PUBMEDID %in% study_details$pubmed_id) %>%
-  filter(SNPS %in% most_significant_snps) %>% 
-  select(DATE.ADDED.TO.CATALOG, PUBMEDID, MAPPED_GENE, P.VALUE, INITIAL.SAMPLE.SIZE, DISEASE.TRAIT, JOURNAL, STUDY, SNPS) %>%
-  rename(date=DATE.ADDED.TO.CATALOG) %>%
+  filter(SNPS %in% most_significant_snps) %>%
+  select(
+    DATE.ADDED.TO.CATALOG,
+    PUBMEDID,
+    MAPPED_GENE,
+    P.VALUE,
+    INITIAL.SAMPLE.SIZE,
+    DISEASE.TRAIT,
+    JOURNAL,
+    STUDY,
+    SNPS
+  ) %>%
+  rename(date = DATE.ADDED.TO.CATALOG) %>%
   arrange(MAPPED_GENE, P.VALUE) %>%
   group_by(SNPS) %>%
   filter(P.VALUE == min(P.VALUE))
@@ -961,94 +956,28 @@ cat_full %>%
 
 
 
+## Publication figures
 
 
+### Figure 1
 
-Figure 1
-
-Three facets
-number of pubs per year
-frequency compared to other types
-sample size compared to other types
-
-for how to do facets with multiple types
-https://stackoverflow.com/questions/31520608/change-y-limits-in-ggplot-with-facet-wrap-to-mix-of-log-and-regular-scales
-
-change size of facets
-https://stackoverflow.com/questions/49110877/how-to-adjust-facet-size-manually
-
-```{r}
-# PGx GWAS publications over time
-study_details %>%
-  unique %>%
-  ggplot(aes(year)) +
-  geom_bar() +
-  #theme_minimal() +
-  theme_Publication(base_size = 12) +
-  ggtitle("PGx GWAS publications over time") +
-  ylab("Number of publications") +
-  xlab("Year") +
-  theme(panel.grid.major.x  = element_blank())
-
-# Fraction of publications that are pgx
-
-f1b <- cat_full %>%
-  select(PUBMEDID, DATE, JOURNAL) %>%
-  unique %>%
-  mutate(DATE = as.Date(DATE)) %>%
-  mutate(year = year(DATE)) %>%
-  filter(year < 2021) %>%
-  mutate(type = case_when(PUBMEDID %in% study_details$pubmed_id ~ 'PGx',
-                   T ~ 'Other')) %>%
-  group_by(year, type) %>%
-  tally %>%
-  pivot_wider(names_from = type, values_from = n) %>%
-  mutate(PGx = case_when(is.na(PGx) ~ 0.0, T~as.numeric(PGx))) %>%
-  mutate(fraction = (PGx / Other)) %>%
-  ggplot(aes(year, fraction)) +
-    geom_point(size=2) +
-  geom_line() +
-  theme_Publication(base_size = 12) +
-  scale_colour_Publication() +
-  labs(fill="") +
-  ggtitle("Percent of PGx-related GWAS Catalog entries") +
-  ylab("Percent") +
-  xlab("Year") +
-  scale_y_continuous(labels = scales::percent_format(accuracy = 1))
-
-# Sample size
-f1c <- ggplot(sample_size_data %>% filter(year < 2021), aes(as.factor(year), n)) +
-  geom_boxplot(aes(color=pgx)) +
-  scale_y_log10() +
-  theme_Publication() +
-  ylab("Sample size (log scale)") +
-  xlab("Year") +
-  scale_colour_Publication() +
-  ggtitle("GWAS sample size")
-
-
-
-```
-
-
-
-
+Set the palette for this figure
 ```{r}
 two_color_palette = c("#E64B35B2", "#4DBBD5B2")
 ```
 
 
-```{r}
+```{r message=FALSE, warning=FALSE}
 fig_1a_data <- study_details %>%
   unique %>%
   select(year) %>%
   group_by(year) %>%
   tally %>%
-  rename(y=n) %>%
-  mutate(facet="a") %>%
+  rename(y = n) %>%
+  mutate(facet = "a") %>%
   mutate(facet_name = "# of publications") %>%
-  mutate(pgx="")
-  
+  mutate(pgx = "")
+
 
 #fig_1b_data <- cat_full %>%
 fig_1b_data <- cat_study %>%
@@ -1058,26 +987,26 @@ fig_1b_data <- cat_study %>%
   mutate(year = year(DATE)) %>%
   filter(year < 2021) %>%
   mutate(type = case_when(PUBMEDID %in% study_details$pubmed_id ~ 'PGx',
-                   T ~ 'Other')) %>%
+                          T ~ 'Other')) %>%
   group_by(year, type) %>%
   tally %>%
   pivot_wider(names_from = type, values_from = n) %>%
-  mutate(PGx = case_when(is.na(PGx) ~ 0.0, T~as.numeric(PGx))) %>%
+  mutate(PGx = case_when(is.na(PGx) ~ 0.0, T ~ as.numeric(PGx))) %>%
   mutate(y = (PGx / Other)) %>%
-  select(-Other, -PGx) %>%
-  mutate(facet="b") %>%
-  mutate(facet_name="% of all GWAS") %>%
-  mutate(pgx="")
+  select(-Other,-PGx) %>%
+  mutate(facet = "b") %>%
+  mutate(facet_name = "% of all GWAS") %>%
+  mutate(pgx = "")
 
-fig_1c_data <- sample_size_data %>% 
+fig_1c_data <- sample_size_data %>%
   ungroup %>%
   filter(year < 2021) %>%
   select(year, n, pgx) %>%
-  rename(y=n) %>%
-  mutate(y=log10(y)) %>%
-  mutate(facet="c") %>%
-  mutate(facet_name="Sample size") %>%
-  mutate(pgx=as.character(pgx))
+  rename(y = n) %>%
+  mutate(y = log10(y)) %>%
+  mutate(facet = "c") %>%
+  mutate(facet_name = "Sample size") %>%
+  mutate(pgx = as.character(pgx))
 
 
 fig_1_data <- fig_1a_data %>%
@@ -1089,110 +1018,79 @@ fig_1_data <- fig_1a_data %>%
 
 ggplot(fig_1_data) +
   facet_grid(facet_name ~ ., scales = "free") +
-  geom_bar(data=subset(fig_1_data, facet=="a"), stat="identity", aes(as.factor(year), y)) +
-  geom_point(data=subset(fig_1_data, facet=="b"),size=2, aes(as.factor(year), y)) +
-  geom_line(data=subset(fig_1_data, facet=="b"), aes(as.factor(year), y)) +
-  geom_boxplot(data=subset(fig_1_data, facet=="c"), aes(as.factor(year), y, color=pgx)) +
+  geom_bar(data = subset(fig_1_data, facet == "a"),
+           stat = "identity",
+           aes(as.factor(year), y)) +
+  geom_point(data = subset(fig_1_data, facet == "b"),
+             size = 2,
+             aes(as.factor(year), y)) +
+  geom_line(data = subset(fig_1_data, facet == "b"), aes(as.factor(year), y)) +
+  geom_boxplot(data = subset(fig_1_data, facet == "c"), aes(as.factor(year), y, color =
+                                                              pgx)) +
   theme_Publication() +
   ylab("") +
   xlab("Year") +
   ggtitle("Pharmacogenomics GWAS publication statistics") +
-  theme(legend.position="none") +
+  theme(legend.position = "none") +
   scale_x_discrete(breaks = c(2008, 2010, 2012, 2014, 2016, 2018, 2020)) +
-  scale_color_manual(values=two_color_palette)
+  scale_color_manual(values = two_color_palette)
 
-ggsave("/Users/gregmcinnes/projects/gwas_in_pgx/manuscript/figures/figure_1.png", width=6, height=6)
+ggsave("figures/figure_1.png", width = 6, height = 6)
 
 ```
 
 
 
+### Figure 2
 
-
-
-
-
+Set the palettes
 ```{r}
 eleven_pallete <- c("#332288", "#88CCEE", "#44AA99", "#117733", "#999933", "#DDCC77", "#CC6677", "#882255", "#AA4499", "#DDDDDD")
 two_color_palette = c("#BB5566", "#004488")
 ```
 
+Part A
 
-
-```{r}
+```{r message=FALSE, warning=FALSE}
 top_atc_codes <- all_pruned_data %>%
   group_by(ATC) %>%
-  tally %>% 
+  tally %>%
   arrange(-n) %>%
-  head(n=9) %>%
+  head(n = 9) %>%
   select(ATC) %>%
   pull
 
 top_atc_codes <- c(top_atc_codes, "Other")
 
-# Number of new associations each year
-all_pruned_data %>%
-  mutate(ATC=case_when(ATC %in% top_atc_codes ~ ATC, T~"Other")) %>%
-  mutate(ATC = ordered(ATC, levels=top_atc_codes)) %>%
-  #filter(year == 2016) %>%
-  ggplot(aes(as.factor(year), fill=ATC)) +
-  geom_bar() +
-  theme_minimal() +
-  ylab("Year") +
-  ylab("Count") +
-  theme_Publication(base_size=12) +
-  #scale_fill_Publication() +
-  scale_fill_brewer(palette = "Spectral") +
-  labs(fill="ATC") +
-  ylab("Number of new association") +
-  xlab("Year") +
-  ggtitle("Number of newly discovered PGx associations each year")
-
-atc_data <- all_pruned_data %>%
-  mutate(ATC=case_when(ATC %in% top_atc_codes ~ ATC, T~"Other")) %>%
-  mutate(ATC = ordered(ATC, levels=top_atc_codes)) %>%
-  select(ATC, atc_description) %>%
-  unique %>%
-  #filter(ATC != "Other") %>%
-  mutate(atc_text = case_when(ATC == "B01" ~ "B01-Antithrombotic",
-                              ATC == "C09" ~ "C09-Renin-angiotensin",
-                              ATC == "C10" ~ "C10-Lipid modifying",
-                              ATC == "J05" ~ "J05-Antivirals",
-                              ATC == "J07" ~ "J07-Vaccines",
-                              ATC == "L01" ~ "L01-Antineoplastics",
-                              ATC == "L04" ~ "L04-Immunosuppressants",
-                              ATC == "N05" ~ "N05-Psycholeptics",
-                              ATC == "N06" ~ "N06-Psychoanaleptics",
-                              ATC == "R03" ~ "R03-Obstructive airway",
-                              T ~ "Other"
-  ))
-
 
 atc_text <- atc_codes %>%
-  mutate(ATC=case_when(ATC %in% top_atc_codes ~ ATC, T~"Other")) %>%
-  mutate(ATC = ordered(ATC, levels=top_atc_codes)) %>%
+  mutate(ATC = case_when(ATC %in% top_atc_codes ~ ATC, T ~ "Other")) %>%
+  mutate(ATC = ordered(ATC, levels = top_atc_codes)) %>%
   select(ATC, atc_description) %>%
   unique %>%
-  #filter(ATC != "Other") %>%
-  mutate(atc_text = case_when(ATC == "B01" ~ "Antithrombotics",
-                              ATC == "C09" ~ "Renin-angiotensin drugs",
-                              ATC == "C10" ~ "Lipid modifying",
-                              ATC == "J05" ~ "Antivirals",
-                              ATC == "J07" ~ "Vaccines",
-                              ATC == "L01" ~ "Antineoplastics",
-                              ATC == "L04" ~ "Immunosuppressants",
-                              ATC == "N05" ~ "Psycholeptics",
-                              ATC == "N06" ~ "Psychoanaleptics",
-                              ATC == "R03" ~ "Obstructive airway",
-                              ATC == "A07" ~ "Antidiarrheals",
-                              ATC == "A10" ~ "Diabetes drugs",
-                              ATC == "C02" ~ "Antihypertensives",
-                              ATC == "L03" ~ "Immunostimulents",
-                              ATC == "N03" ~ "Antiepileptics",
-                              ATC == "C03" ~ "Diuretics",
-                              T ~ "Other")) 
+  mutate(
+    atc_text = case_when(
+      ATC == "B01" ~ "Antithrombotics",
+      ATC == "C09" ~ "Renin-angiotensin drugs",
+      ATC == "C10" ~ "Lipid modifying",
+      ATC == "J05" ~ "Antivirals",
+      ATC == "J07" ~ "Vaccines",
+      ATC == "L01" ~ "Antineoplastics",
+      ATC == "L04" ~ "Immunosuppressants",
+      ATC == "N05" ~ "Psycholeptics",
+      ATC == "N06" ~ "Psychoanaleptics",
+      ATC == "R03" ~ "Obstructive airway",
+      ATC == "A07" ~ "Antidiarrheals",
+      ATC == "A10" ~ "Diabetes drugs",
+      ATC == "C02" ~ "Antihypertensives",
+      ATC == "L03" ~ "Immunostimulents",
+      ATC == "N03" ~ "Antiepileptics",
+      ATC == "C03" ~ "Diuretics",
+      T ~ "Other"
+    )
+  )
 
-atc_text_ordered <- atc_text %>% 
+atc_text_ordered <- atc_text %>%
   select(atc_text) %>%
   arrange(atc_text) %>%
   filter(atc_text != "Other") %>%
@@ -1200,60 +1098,57 @@ atc_text_ordered <- atc_text %>%
 
 atc_text_ordered <- c(atc_text_ordered, "Other")
 
-
 all_pruned_data %>%
-  mutate(ATC=case_when(ATC %in% top_atc_codes ~ ATC, T~"Other")) %>%
-  mutate(ATC = ordered(ATC, levels=top_atc_codes)) %>%
+  mutate(ATC = case_when(ATC %in% top_atc_codes ~ ATC, T ~ "Other")) %>%
+  mutate(ATC = ordered(ATC, levels = top_atc_codes)) %>%
   left_join(atc_text) %>%
-  mutate(atc_text = ordered(atc_text, levels=atc_text_ordered)) %>%
-  #filter(year == 2016) %>%
-  ggplot(aes(as.factor(year), fill=atc_text)) +
+  mutate(atc_text = ordered(atc_text, levels = atc_text_ordered)) %>%
+  ggplot(aes(as.factor(year), fill = atc_text)) +
   geom_bar() +
   theme_minimal() +
   ylab("Year") +
   ylab("Count") +
-  theme_Publication(base_size=12) +
-  #scale_fill_Publication() +
-  #scale_fill_brewer(palette = "Spectral") +
+  theme_Publication(base_size = 12) +
   scale_fill_manual(values = eleven_pallete) +
-  labs(fill="ATC") +
+  labs(fill = "ATC") +
   ylab("Number of new associations") +
   xlab("Year") +
-  ggtitle("Number of newly discovered PGx associations each year") + 
-  theme(legend.title=element_blank())
+  ggtitle("Number of newly discovered PGx associations each year") +
+  theme(legend.title = element_blank())
 
-ggsave("/Users/gregmcinnes/projects/gwas_in_pgx/manuscript/figures/figure_2a.png", width=7, height=5)
+ggsave("figures/figure_2a.png", width = 7, height = 5)
 ```
 
+Part B
 
-
-```{r}
-
+```{r message=FALSE, warning=FALSE}
 atc_text <- atc_codes %>%
-    filter(ATC %in% all_pruned_data$ATC) %>%
-  #mutate(ATC=case_when(ATC %in% all_pruned_data$ATC ~ ATC, T~"Other")) %>%
-  mutate(ATC = ordered(ATC, levels=atc_order)) %>%
+  filter(ATC %in% all_pruned_data$ATC) %>%
+  mutate(ATC = ordered(ATC, levels = atc_order)) %>%
   select(ATC, atc_description) %>%
   unique %>%
-  #filter(ATC != "Other") %>%
-  mutate(atc_text = case_when(ATC == "B01" ~ "Antithrombotics",
-                              ATC == "C09" ~ "Renin-angiotensin drugs",
-                              ATC == "C10" ~ "Lipid modifying",
-                              ATC == "J05" ~ "Antivirals",
-                              ATC == "J07" ~ "Vaccines",
-                              ATC == "L01" ~ "Antineoplastics",
-                              ATC == "L04" ~ "Immunosuppressants",
-                              ATC == "N05" ~ "Psycholeptics",
-                              ATC == "N06" ~ "Psychoanaleptics",
-                              ATC == "R03" ~ "Obstructive airway",
-                              ATC == "A07" ~ "Antidiarrheals",
-                              ATC == "A10" ~ "Diabetes drugs",
-                              ATC == "C02" ~ "Antihypertensives",
-                              ATC == "L03" ~ "Immunostimulents",
-                              ATC == "N03" ~ "Antiepileptics",
-                              ATC == "C03" ~ "Diuretics",
-                              T ~ "Other")) 
-  
+  mutate(
+    atc_text = case_when(
+      ATC == "B01" ~ "Antithrombotics",
+      ATC == "C09" ~ "Renin-angiotensin drugs",
+      ATC == "C10" ~ "Lipid modifying",
+      ATC == "J05" ~ "Antivirals",
+      ATC == "J07" ~ "Vaccines",
+      ATC == "L01" ~ "Antineoplastics",
+      ATC == "L04" ~ "Immunosuppressants",
+      ATC == "N05" ~ "Psycholeptics",
+      ATC == "N06" ~ "Psychoanaleptics",
+      ATC == "R03" ~ "Obstructive airway",
+      ATC == "A07" ~ "Antidiarrheals",
+      ATC == "A10" ~ "Diabetes drugs",
+      ATC == "C02" ~ "Antihypertensives",
+      ATC == "L03" ~ "Immunostimulents",
+      ATC == "N03" ~ "Antiepileptics",
+      ATC == "C03" ~ "Diuretics",
+      T ~ "Other"
+    )
+  )
+
 
 
 atc_text_ordered <- atc_text %>%
@@ -1261,7 +1156,7 @@ atc_text_ordered <- atc_text %>%
   select(ATC, atc_text) %>%
   unique %>%
   
-  mutate(ATC = ordered(ATC, levels=atc_order)) %>%
+  mutate(ATC = ordered(ATC, levels = atc_order)) %>%
   
   unique %>%
   filter(atc_text != "Other") %>%
@@ -1273,376 +1168,55 @@ atc_text_ordered <- c("Other", atc_text_ordered)
 
 # Number of PGx GWAS publications with significant hits
 study_count %>%
-  #left_join(hit_count) %>%
-  #filter(ATC %in% atc_groups) %>%
   filter(ATC %in% atc_order) %>%
   left_join(atc_text) %>%
-    mutate(ATC = ordered(ATC, levels=atc_order)) %>%
-  mutate(atc_text = case_when(atc_text %in% atc_text_ordered ~ atc_text, T~"Other")) %>%
-  mutate(atc_text = ordered(atc_text, levels=atc_text_ordered)) %>%
+  mutate(ATC = ordered(ATC, levels = atc_order)) %>%
+  mutate(atc_text = case_when(atc_text %in% atc_text_ordered ~ atc_text, T ~
+                                "Other")) %>%
+  mutate(atc_text = ordered(atc_text, levels = atc_text_ordered)) %>%
   arrange(-n_studies) %>%
   filter(phenotype %in% c("side effects", "efficacy")) %>%
-  mutate(phenotype = case_when(phenotype == "side effects" ~ "Side effects", phenotype == "efficacy" ~ "Efficacy")) %>% 
+  mutate(
+    phenotype = case_when(
+      phenotype == "side effects" ~ "Side effects",
+      phenotype == "efficacy" ~ "Efficacy"
+    )
+  ) %>%
   mutate(n_insig = n_studies - n_studies_sig) %>%
   select(-n_studies) %>%
-  pivot_longer(cols=c("n_studies_sig", "n_insig")) %>%
-  mutate(plot_name = case_when(name=="n_studies_sig" ~ "Significant hits", T~"No significant hits")) %>%
-    ggplot(aes(atc_text, value, fill=plot_name)) +
-  geom_bar(stat="identity") +
-  facet_grid(.~phenotype) +
+  pivot_longer(cols = c("n_studies_sig", "n_insig")) %>%
+  mutate(plot_name = case_when(
+    name == "n_studies_sig" ~ "Significant hits",
+    T ~ "No significant hits"
+  )) %>%
+  ggplot(aes(atc_text, value, fill = plot_name)) +
+  geom_bar(stat = "identity") +
+  facet_grid(. ~ phenotype) +
   coord_flip() +
-  #theme_bw() +
   ylab("ATC Code") +
   ylab("Number of studies") +
   ggtitle("Number of PGx GWAS publications") +
-  theme_Publication(base_size=12) +
+  theme_Publication(base_size = 12) +
   scale_fill_Publication() +
-    scale_fill_manual(name = "Study findings", values=two_color_palette) +
-  labs(fill="") +
+  scale_fill_manual(name = "Study findings", values = two_color_palette) +
+  labs(fill = "") +
   xlab("ATC Group") +
   ylab("Number of publications") +
-  theme(legend.title=element_blank())
+  theme(legend.title = element_blank())
 
-ggsave("/Users/gregmcinnes/projects/gwas_in_pgx/manuscript/figures/figure_2b.png", width=6, height=6)
+ggsave("figures/figure_2b.png", width = 6, height = 6)
 ```
 
+### Figure 3
 
-
-Figure 4
-
+The complete code for Figure 3 needs to be rewritten. Please open an issue if you would like it and it's not here yet.
 ```{r}
-consortia <- read.table("/Users/gregmcinnes/projects/gwas_in_pgx/data/consortia_data.tsv", header=F, sep="\t", comment.char = "")
-names(consortia) <- c("pmid", "drug", "atc", "consortium")
-consortia <- consortia %>% mutate(ATC = substr(atc, 1, 3))
-
-atc_text <- atc_codes %>%
-    filter(ATC %in% consortia$ATC) %>%
-  #mutate(ATC=case_when(ATC %in% all_pruned_data$ATC ~ ATC, T~"Other")) %>%
-  #mutate(ATC = ordered(ATC, levels=atc_order)) %>%
-  select(ATC, atc_description) %>%
-  unique %>%
-  #filter(ATC != "Other") %>%
-  mutate(atc_text = case_when(ATC == "B01" ~ "Antithrombotics",
-                              ATC == "C09" ~ "Renin-angiotensin drugs",
-                              ATC == "C10" ~ "Lipid modifying",
-                              ATC == "J05" ~ "Antivirals",
-                              ATC == "J07" ~ "Vaccines",
-                              ATC == "L01" ~ "Antineoplastics",
-                              ATC == "L04" ~ "Immunosuppressants",
-                              ATC == "N05" ~ "Psycholeptics",
-                              ATC == "N06" ~ "Psychoanaleptics",
-                              ATC == "R03" ~ "Obstructive airway",
-                              ATC == "A07" ~ "Antidiarrheals",
-                              ATC == "A10" ~ "Diabetes drugs",
-                              ATC == "C02" ~ "Antihypertensives",
-                              ATC == "L03" ~ "Immunostimulents",
-                              ATC == "N03" ~ "Antiepileptics",
-                              ATC == "C03" ~ "Diuretics",
-                              ATC == "H02" ~ "Corticosteroids",
-                              ATC == "C07" ~ "Beta blocking agents",
-                              ATC == "C08" ~ "Ca channel blockers",
-                              ATC == "D08" ~ "Antibiotics",
-                              ATC == "D06" ~ "Topical antibiotics\nand chemotherapies",
-                              T ~ "Other")) 
-
-
-
-atc_text %>% filter(ATC %in% consortia$ATC)
-
-consortia <- consortia %>%
-  #left_join(atc_codes %>% select(ATC, atc_description)) %>%
-  left_join(atc_text)
-
-#consortia_ordered
-
-consortia_ordered <- consortia %>% 
-  group_by(consortium) %>%
-  tally %>%
-  rename(count = n) %>%
-  arrange(-count) %>% 
-  filter(consortium != "N/A") %>%
-  select(consortium) %>%
-  pull
-
-
-consortia %>%
-    filter(consortium %in% consortia_ordered[0:12]) %>%
-  unique %>%
-  #group_by(pmid, consortium) %>%
-  #tally %>% arrange(-n)
-  mutate(consortium = ordered(consortium, levels=consortia_ordered)) %>%
-  filter(is.na(atc_text ))
-
-
-consortia %>%
-  filter(consortium %in% consortia_ordered[0:20]) %>%
-  unique %>%
-  #group_by(pmid, consortium) %>%
-  #tally %>% arrange(-n)
-  mutate(consortium = ordered(consortium, levels=consortia_ordered)) %>%
-  ggplot() + 
-  #geom_bar(aes(consortium, fill=ATC)) +
-    geom_bar(aes(consortium, fill=atc_text)) +
-    theme_Publication() +
-  ggtitle("Impactful consortia and cohorts in PGx GWAS") +
-  ylab("Number of GWAS") +
-  xlab("Study cohort") +
-  theme(axis.text.x = element_text(angle = 45, vjust = 1, hjust=1),
-        legend.position="right",
-        legend.title = element_blank())
-
-ggsave("/Users/gregmcinnes/projects/gwas_in_pgx/manuscript/figures/figure_4.v2.png", width=8, height=5)
-```
-
-
-```{r}
-consortia %>%
-  filter(consortium %in% consortia_ordered[0:20]) %>%
-  unique %>%
-  #group_by(pmid, consortium) %>%
-  #tally %>% arrange(-n)
-  mutate(consortium = ordered(consortium, levels=consortia_ordered)) %>%
-  left_join(cat_full %>% select(PUBMEDID, DATE) %>% unique %>% rename(pmid=PUBMEDID) %>% mutate(pmid=as.character(pmid))) %>%
-  mutate(year = as.numeric(format(DATE,'%Y'))) %>%
-  select(year, pmid, consortium) %>%
-  unique %>%
-  group_by(year, consortium) %>%
-  tally %>%
-  ggplot() + 
-  #geom_bar(aes(consortium, fill=ATC)) +
-  #geom_point(aes(year, consortium, size=n))
-  #geom_density_ridges2(aes(year, consortium), fill = "#00AFBB", alpha=0.7, rel_min_height = 0.01) +
-  geom_density_ridges(
-    aes(year, consortium),
-    stat = "binline", bins = 20, scale = 0.95,
-    draw_baseline = FALSE
-    )
-    
-
-geom_bar(aes(consortium, fill=atc_text)) +
-    #theme_Publication() +
-  ggtitle("Most used cohorts in PGx GWAS") +
-  ylab("Number of GWAS") +
-  xlab("Study cohort") +
-  theme(axis.text.x = element_text(angle = 45, vjust = 1, hjust=1),
-        legend.position="right",
-        legend.title = element_blank())
-```
-
-
-
-```{r}
-consortia_ordered <- consortia %>% 
-  unique %>%
-  group_by(consortium) %>%
-  tally %>%
-  rename(count = n) %>%
-  arrange(-count) %>% 
-  filter(consortium != "N/A") %>%
-  select(consortium) %>%
-  pull
-
-
-f4a_data <- consortia %>%
-  filter(consortium %in% consortia_ordered[0:20]) %>%
-  unique %>%
-  #group_by(pmid, consortium) %>%
-  #tally %>% arrange(-n)
-  mutate(consortium = ordered(consortium, levels=consortia_ordered)) %>%
-  group_by(consortium, atc_text) %>%
-  tally %>%
-  unique %>%
-  mutate(year=2000) %>%
-  mutate(facet="# of GWAS")
-  
-
-f4b_data <- consortia %>%
-  filter(consortium %in% consortia_ordered[0:20]) %>%
-  unique %>%
-  #group_by(pmid, consortium) %>%
-  #tally %>% arrange(-n)
-  mutate(consortium = ordered(consortium, levels=consortia_ordered)) %>%
-  left_join(cat_full %>% select(PUBMEDID, DATE) %>% unique %>% rename(pmid=PUBMEDID) %>% mutate(pmid=as.character(pmid))) %>%
-  mutate(year = as.numeric(format(DATE,'%Y'))) %>%
-  select(year, pmid, consortium) %>%
-  unique %>%
-  group_by(year, consortium) %>%
-  tally %>%
-  mutate(atc_text="") %>%
-  mutate(facet="Publications over time")
-
-
-
-  #geom_boxplot(data=subset(fig_1_data, facet=="c"), aes(as.factor(year), y, color=pgx)) +
-    
-    
-f4_data <- bind_rows(f4a_data, f4b_data)
-
-ggplot(f4_data) +
-  facet_grid(facet~., scales = "free", switch="both") +
-  geom_bar(data=subset(f4_data, facet=="# of GWAS"), aes(consortium, n, fill=atc_text), stat="identity") +
-  geom_point(data=subset(f4_data, facet=="Publications over time"), aes(consortium, year, size=n)) +
-  theme_Publication() +
-    theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1),
-        legend.position="",
-        legend.title = element_blank(),
-        strip.placement = "outside",
-        axis.text.y = element_text(angle=90),
-        axis.title.x = element_text(angle=180)) +
-  xlab("Data source") +
-  ylab("")
-
-    
-ggplot(f4_data) +
-  facet_grid(facet~., scales = "free", switch="both") +
-  geom_bar(data=subset(f4_data, facet=="# of GWAS"), aes(consortium, n, fill=atc_text), stat="identity") +
-  geom_point(data=subset(f4_data, facet=="Publications over time"), aes(consortium, year, size=n)) +
-  theme_Publication() +
-    theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1),
-        #legend.position="",
-        legend.title = element_blank(),
-        strip.placement = "outside",
-        axis.text.y = element_text(angle=90),
-        axis.title.x = element_text(angle=180)) +
-  scale_y_continuous(position = "right") +
-  xlab("Data source") +
-  ylab("")
-
-ggsave("/Users/gregmcinnes/projects/gwas_in_pgx/manuscript/figures/figure_4.png", width=8, height=8)
+cat_anc_modified <- read.table("data/cat_ancestry_modified.tsv", sep=",", header=T)
 
 ```
 
-
-
 ```{r}
-rbind(sample_count %>% select(ancestry, year, percent) %>% rename(value=percent) %>% mutate(group="% of participants"),
-study_counts %>% select(ancestry, year, percent_of_studies) %>% rename(value=percent_of_studies) %>% mutate(group="% of studies")) %>%
-    ggplot(aes(year, value, color=ancestry)) +
-    geom_point() +
-    geom_line() +
-  theme_Publication() +
-  scale_colour_Publication() +
-  #ylab("Percent of studies") +
-  xlab("Year") +
-  ggtitle("Number of PGx GWAS by ancestry") +
-  facet_grid(group~.) +
-  scale_y_continuous(labels = scales::percent)
-```
-
-
-
-```{r}
-
-f3a_data <- cat_anc %>% 
-    filter(!is.na(NUMBER.OF.INDIVDUALS)) %>%
-    mutate(ancestry = case_when(BROAD.ANCESTRAL.CATEGORY %in% c(african) ~ "African",
-                                BROAD.ANCESTRAL.CATEGORY %in% c(european) ~ "European",
-                                BROAD.ANCESTRAL.CATEGORY %in% c(south_asian, east_asian, other_asian) ~ "Asian",
-                                BROAD.ANCESTRAL.CATEGORY %in% c(americas, latin, native_american) ~ "Americas",
-                                #BROAD.ANCESTRAL.CATEGORY %in% c() ~ "African",
-                                T~"Other/Mixed")) %>%
-      group_by(STUDY.ACCESSION, PUBMEDID, STAGE, DATE, ancestry) %>%
-  #filter(STAGE == "initial") %>%
-
-  summarize(n=sum(NUMBER.OF.INDIVDUALS)) %>%
-  mutate(year = year(DATE)) %>%
-  mutate(pgx = PUBMEDID %in% study_details$pubmed_id) %>%
-  ungroup %>%
-  unique %>%
-  #mutate()
-  #group_by(BROAD.ANCESTRAL.CATEGORY, pgx) %>%
-  filter(pgx == T) %>%
-  filter(STAGE == "initial") %>%
-  filter(n>=100) %>%
-  mutate(facet="GWAS study sizes") %>%
-    
-    mutate(date=as.Date(DATE)) %>%
-  select(ancestry, date, n, facet) %>%
-  rename(value=n) 
-
-f3_bc_data <- rbind(sample_count %>% select(ancestry, year, percent) %>% rename(value=percent) %>% mutate(facet="% of participants"),
-study_counts %>% select(ancestry, year, percent_of_studies) %>% rename(value=percent_of_studies) %>% mutate(facet="% of studies")) %>%
-  ungroup %>%
-  #mutate(date=as.Date(year, origin="1970-01-01")) %>%
-  mutate(date = as.Date(ISOdate(year, 7, 1))) %>%
-  #mutate(date=as.Date(ifelse(is.na(year), year, year), origin="1970-01-01"))
-    select(ancestry, date, value, facet) %>%
-  
-  unique
-
-  
-f3_data <- rbind(f3a_data, f3_bc_data) %>%
-  mutate(facet=factor(facet, levels=c("GWAS study sizes", "% of participants", "% of studies")))
-  
-
-    
-ggplot(f3_data) +
-  facet_grid(facet~., scales = "free") +
-  geom_point(data=subset(f3_data, facet=="GWAS study sizes"), aes(date, value, color=ancestry, size=value), alpha=0.3) +
-  #geom_point() +
-  geom_line(data=subset(f3_data, facet=="% of participants"), aes(date, value, color=ancestry)) +
-  geom_line(data=subset(f3_data, facet=="% of studies"), aes(date, value, color=ancestry)) +
-    theme_Publication() +
-  ggtitle("Ancestral composition of PGx GWAS") +
-  ylab("") +
-  xlab("Date of publication") +
-  #scale_color_manual(values=eleven_pallete)
-  scale_color_brewer(palette="Dark2")
-  
-  
-  
-g <- ggplotGrob(f3)
-g$heights
-g$heights[[6]] <- unit(2, 'null', 'null')
-grid.draw(g)
-
-```
-```{r}
-ggplot(f3_data %>% filter(facet == "GWAS study sizes")) +
-  facet_grid(facet~., scales = "free") +
-  geom_point(data=subset(f3_data, facet=="GWAS study sizes"), aes(date, value, color=ancestry, size=value), alpha=0.3) +
-  #geom_point() +
-  #geom_line(data=subset(f3_data, facet=="% of participants"), aes(date, value, color=ancestry)) +
-  #geom_line(data=subset(f3_data, facet=="% of studies"), aes(date, value, color=ancestry)) +
-    theme_Publication() +
-  ggtitle("Ancestral composition of PGx GWAS") +
-  ylab("") +
-  xlab("Date of publication") +
-  #scale_color_manual(values=eleven_pallete)
-  scale_color_brewer(palette="Dark2")
-```
-
-```{r}
-ggplot(f3_data %>% filter(facet != "GWAS study sizes")) +
-  facet_grid(facet~., scales = "free") +
-  #geom_point(data=subset(f3_data, facet=="GWAS study sizes"), aes(date, value, color=ancestry, size=value), alpha=0.3) +
-  #geom_point() +
-  geom_line(data=subset(f3_data, facet=="% of participants"), aes(date, value, color=ancestry)) +
-  geom_line(data=subset(f3_data, facet=="% of studies"), aes(date, value, color=ancestry)) +
-    theme_Publication() +
-  ggtitle("Ancestral composition of PGx GWAS") +
-  ylab("") +
-  xlab("Date of publication") +
-  #scale_color_manual(values=eleven_pallete)
-  #scale_color_brewer(palette="Dark2") +
-    scale_y_continuous(labels=percent) 
-```
-
-
-```{r}
-read.table("/Users/gregmcinnes/projects/gwas_in_pgx/data/broad_ancestral_bystudytype.csv", sep=",", header=T)
-```
-
-
-```{r}
-cat_anc_yash <- read.table("/Users/gregmcinnes/projects/gwas_in_pgx/data/cat_ancestry_from_yash.tsv", sep=",", header=T)
-
-cat_anc_yash %>% group_by(BROAD.ANCESTRAL) %>% tally %>% arrange(-n)
-cat_anc_yash %>% group_by(Broader) %>% tally %>% arrange(-n)
-```
-
-```{r}
-anc_histrogram_data <- read.table("/Users/gregmcinnes/projects/gwas_in_pgx/data/broad_ancestral_bystudytype.csv", sep=",", header=T)
+anc_histrogram_data <- read.table("data/broad_ancestral_bystudytype.csv", sep=",", header=T)
 anc_histrogram_data %>% select(Broader, Discovery, Replication) %>%
   pivot_longer(c(Discovery, Replication)) %>%
   ggplot(aes(Broader, value/100)) +
@@ -1658,25 +1232,113 @@ anc_histrogram_data %>% select(Broader, Discovery, Replication) %>%
   
 ```
 
+### Figure 4
+
+
+Set the palette
+
 ```{r}
+palette_25 <- c(
+  "dodgerblue2", "#E31A1C", # red
+  "green4",
+  "#6A3D9A", # purple
+  "#FF7F00", # orange
+  "black", "gold1",
+  "skyblue2", "#FB9A99", # lt pink
+  "palegreen2",
+  "#CAB2D6", # lt purple
+  "#FDBF6F", # lt orange
+  "gray70", "khaki2",
+  "maroon", "orchid1", "deeppink1", "blue1", "steelblue4",
+  "darkturquoise", "green1", "yellow4", "yellow3",
+  "darkorange4", "brown"
+)
+```
 
 
-chr = 7
-start = 99643194 - 5000
-end = 99684998 + 5000
+The figure in the publication was manually cropped and rotated
+```{r message=FALSE, warning=FALSE}
+consortia_ordered <- consortia %>%
+  unique %>%
+  group_by(consortium) %>%
+  tally %>%
+  rename(count = n) %>%
+  arrange(-count) %>%
+  filter(consortium != "N/A") %>%
+  select(consortium) %>%
+  pull
 
-pgx_gwas_hits_scaled %>% 
-  filter(CHR == chr) %>%
-  filter(BP >= start, BP <= end) %>%
-  group_by(ATC) %>%
-  filter(P == min(P)) %>%
-  ggplot() +
-  geom_point(aes(ATC, -log10(P)))
-  
-  #filter(genes == "HLA-B")
+
+f4a_data <- consortia %>%
+  filter(consortium %in% consortia_ordered[0:17]) %>%
+  unique %>%
+  mutate(consortium = ordered(consortium, levels = consortia_ordered)) %>%
+  group_by(consortium, atc_text) %>%
+  tally %>%
+  unique %>%
+  mutate(year = 2000) %>%
+  mutate(facet = "# of GWAS") %>%
+  filter(!is.na(atc_text))
+
+
+f4b_data <- consortia %>%
+  filter(consortium %in% consortia_ordered[0:17]) %>%
+  unique %>%
+  mutate(consortium = ordered(consortium, levels = consortia_ordered)) %>%
+  left_join(
+    cat_full %>% select(PUBMEDID, DATE) %>% unique %>% rename(pmid = PUBMEDID) %>% mutate(pmid =
+                                                                                            as.character(pmid))
+  ) %>%
+  mutate(year = as.numeric(format(DATE, '%Y'))) %>%
+  select(year, pmid, consortium) %>%
+  unique %>%
+  group_by(year, consortium) %>%
+  tally %>%
+  mutate(atc_text = "") %>%
+  mutate(facet = "Publications over time")
+
+
+
+f4_data <- bind_rows(f4a_data, f4b_data)
+
+
+ggplot(f4_data) +
+  facet_grid(facet ~ ., scales = "free", switch = "both") +
+  geom_bar(
+    data = subset(f4_data, facet == "# of GWAS"),
+    aes(consortium, n, fill = atc_text),
+    stat = "identity"
+  ) +
+  geom_point(data = subset(f4_data, facet == "Publications over time"),
+             aes(consortium, year, size = n)) +
+  theme_Publication() +
+  theme(
+    axis.text.x = element_text(
+      angle = 90,
+      vjust = 0.5,
+      hjust = 1
+    ),
+    legend.title = element_blank(),
+    strip.placement = "outside",
+    axis.text.y = element_text(angle = 90),
+    axis.title.x = element_text(angle = 180)
+  ) +
+  scale_y_continuous(position = "right") +
+  scale_fill_manual(values = palette_25) +
+  xlab("Data source") +
+  ylab("")
+
+ggsave("figure_4.png", width = 8, height = 8)
 
 ```
 
+
+
+
+
+### Figure 5
+
+Set the palette
 
 ```{r}
 four_color_palette <- rev(c("#4477AA", "#228833", "#CCBB44", "#EE6677"))
@@ -1684,123 +1346,151 @@ four_color_palette <- rev(c("#4477AA", "#228833", "#CCBB44", "#EE6677"))
 
 
 
-```{r}
-vip_gene_coords <- read.table("/Users/gregmcinnes/projects/gwas_in_pgx/data/pgx_vip_hg38.extra.bed", sep="\t", header=T)
-#vip_gene_coords <- read.table("/Users/gregmcinnes/projects/gwas_in_pgx/data/pgx_vip_hg38.no_ugt.bed")
+```{r message=FALSE, warning=FALSE}
+# Laod the data
+vip_gene_coords <-
+  read.table("data/pgx_vip_hg38.extra.bed",
+             sep = "\t",
+             header = T)
 names(vip_gene_coords) <- c("chr", "start", "end", "gene", "tier")
 
-#all_pruned_data
-
-i <- 44
-
-vip_gene_coords
-
+# Extract the GWAS hits within each gene
 vip_gene_hits <- data.frame()
 for (i in 1:nrow(vip_gene_coords)) {
-  chr = vip_gene_coords[i,]$chr
-  start = vip_gene_coords[i,]$start - 50000
-  end = vip_gene_coords[i,]$end + 50000
-  gene = vip_gene_coords[i,]$gene
+  chr = vip_gene_coords[i, ]$chr
+  start = vip_gene_coords[i, ]$start - 50000
+  end = vip_gene_coords[i, ]$end + 50000
+  gene = vip_gene_coords[i, ]$gene
   
-  hits <- pgx_gwas_hits %>% 
-  filter(CHR == chr) %>%
-  filter(BP >= start, BP <= end) %>%
-  group_by(atc) %>%
-  filter(P == min(P)) %>%
+  hits <- pgx_gwas_hits %>%
+    filter(CHR == chr) %>%
+    filter(BP >= start, BP <= end) %>%
+    group_by(atc) %>%
+    filter(P == min(P)) %>%
     select(P, atc, phenotype, PUBMEDID) %>%
     mutate(gene_name = gene)
   
-  #print(hits)
   vip_gene_hits <- bind_rows(vip_gene_hits, hits)
 }
 
-
+# Set the order for the ATC codes in the plot
 atc_order <- vip_gene_hits %>%
   mutate(len = str_length(atc)) %>%
-  #filter(len == 7) %>% 
+  #filter(len == 7) %>%
   rename(ATC = atc) %>%
   left_join(atc_codes) %>%
   select(ATC, atc_description) %>%
   unique %>%
   arrange(ATC) %>%
-    mutate(atc_description = case_when(atc_description == "beta-Adrenergic Blocking Agents" ~ "beta blockers",
-                                       atc_description == "Selective serotonin reuptake inhibitors" ~ "SSRIs",
-                                       atc_description == "Sulfur-containing imidazole derivatives, antithyroid preparations" ~ "imidazoles",
-                                       atc_description == "Thiouracil antithyroid preparations" ~ "thiouracils",
-                                       atc_description == "Bisphosphonate drugs affecting bone structure and mineralization" ~ "bisphosphonates",
-                                       atc_description == "Sulfonylureas for blood glucose lowering" ~ "sulfonylureas",
-                                       atc_description == "Carboxamide derivatives, antiepileptics" ~ "carboxamides",
-                                       atc_description == "hepatitis B, purified antigen" ~ "hepatitis B vaccine",
-                                       atc_description == "smallpox, live attenuated" ~ "smallpox vaccine",
-                                      ATC == "N03AF" ~ "carboxamide derivatives",
-                                     T ~ atc_description)) %>%
-    select(atc_description) %>%
+  mutate(
+    atc_description = case_when(
+      atc_description == "beta-Adrenergic Blocking Agents" ~ "beta blockers",
+      atc_description == "Selective serotonin reuptake inhibitors" ~ "SSRIs",
+      atc_description == "Sulfur-containing imidazole derivatives, antithyroid preparations" ~ "imidazoles",
+      atc_description == "Thiouracil antithyroid preparations" ~ "thiouracils",
+      atc_description == "Bisphosphonate drugs affecting bone structure and mineralization" ~ "bisphosphonates",
+      atc_description == "Sulfonylureas for blood glucose lowering" ~ "sulfonylureas",
+      atc_description == "Carboxamide derivatives, antiepileptics" ~ "carboxamides",
+      atc_description == "hepatitis B, purified antigen" ~ "hepatitis B vaccine",
+      atc_description == "smallpox, live attenuated" ~ "smallpox vaccine",
+      ATC == "N03AF" ~ "carboxamide derivatives",
+      T ~ atc_description
+    )
+  ) %>%
+  select(atc_description) %>%
   pull
 
+# This big ugly snippet formats the data and generates the figure. Apologies...
 vip_gene_hits %>%
   mutate(len = str_length(atc)) %>%
-  #filter(len == 7) %>% 
+  #filter(len == 7) %>%
   rename(ATC = atc) %>%
-    filter(!ATC %in% c("N05A", "L04AA", "C10A", "C10AA", "N/A", "L01", "J07BC", "J05A", "C03AA")) %>%
+  filter(!ATC %in% c(
+    "N05A",
+    "L04AA",
+    "C10A",
+    "C10AA",
+    "N/A",
+    "L01",
+    "J07BC",
+    "J05A",
+    "C03AA"
+  )) %>%
   filter(PUBMEDID != 23459443) %>%
   left_join(atc_codes) %>%
-    mutate(atc_description = case_when(atc_description == "beta-Adrenergic Blocking Agents" ~ "beta blockers",
-                                       atc_description == "Selective serotonin reuptake inhibitors" ~ "SSRIs",
-                                       atc_description == "Sulfur-containing imidazole derivatives, antithyroid preparations" ~ "imidazoles",
-                                       atc_description == "Thiouracil antithyroid preparations" ~ "thiouracils",
-                                       atc_description == "Bisphosphonate drugs affecting bone structure and mineralization" ~ "bisphosphonates",
-                                       atc_description == "Sulfonylureas for blood glucose lowering" ~ "sulfonylureas",
-                                       atc_description == "Carboxamide derivatives, antiepileptics" ~ "carboxamides",
-                                                                              atc_description == "hepatitis B, purified antigen" ~ "hepatitis B vaccine",
-                                       atc_description == "smallpox, live attenuated" ~ "smallpox vaccine",
-                                       ATC == "N03AF" ~ "carboxamide derivatives",
-                                     T ~ atc_description)) %>%
-  mutate(atc_description = ordered(atc_description, levels=rev(atc_order))) %>%
-  mutate(phenotype = case_when(phenotype == "biomarker" ~ "Biomarker",
-                               phenotype == "efficacy" ~ "Response", 
-                               phenotype == "metabolism" ~ "Metabolism", 
-                               phenotype == "other" ~ "Response",
-                               phenotype == "side effects" ~ "ADRs")) %>%
-  left_join(vip_gene_coords %>% select(gene, tier) %>% rename(gene_name=gene)) %>%
-  mutate(tier = case_when(tier == "Tier 1" ~ "T1",
-                          tier == "Tier 2" ~ "T2",
-                          tier == "Cancer Genome" ~ "CG",
-                          tier == "Other" ~ "HLA")) %>%
-  mutate(tier = ordered(tier, levels=c("T1", "T2", "CG", "HLA"))) %>%
+  mutate(
+    atc_description = case_when(
+      atc_description == "beta-Adrenergic Blocking Agents" ~ "beta blockers",
+      atc_description == "Selective serotonin reuptake inhibitors" ~ "SSRIs",
+      atc_description == "Sulfur-containing imidazole derivatives, antithyroid preparations" ~ "imidazoles",
+      atc_description == "Thiouracil antithyroid preparations" ~ "thiouracils",
+      atc_description == "Bisphosphonate drugs affecting bone structure and mineralization" ~ "bisphosphonates",
+      atc_description == "Sulfonylureas for blood glucose lowering" ~ "sulfonylureas",
+      atc_description == "Carboxamide derivatives, antiepileptics" ~ "carboxamides",
+      atc_description == "hepatitis B, purified antigen" ~ "hepatitis B vaccine",
+      atc_description == "smallpox, live attenuated" ~ "smallpox vaccine",
+      ATC == "N03AF" ~ "carboxamide derivatives",
+      T ~ atc_description
+    )
+  ) %>%
+  mutate(atc_description = ordered(atc_description, levels = rev(atc_order))) %>%
+  mutate(
+    phenotype = case_when(
+      phenotype == "biomarker" ~ "Biomarker",
+      phenotype == "efficacy" ~ "Response",
+      phenotype == "metabolism" ~ "Metabolism",
+      phenotype == "other" ~ "Response",
+      phenotype == "side effects" ~ "ADRs"
+    )
+  ) %>%
+  left_join(vip_gene_coords %>% select(gene, tier) %>% rename(gene_name =
+                                                                gene)) %>%
+  mutate(
+    tier = case_when(
+      tier == "Tier 1" ~ "T1",
+      tier == "Tier 2" ~ "T2",
+      tier == "Cancer Genome" ~ "CG",
+      tier == "Other" ~ "HLA"
+    )
+  ) %>%
+  mutate(tier = ordered(tier, levels = c("T1", "T2", "CG", "HLA"))) %>%
   mutate(significant = case_when(P < 5e-8 ~ TRUE,
                                  T ~ F)) %>%
   mutate(ATC_chapter = substr(ATC, 1, 1)) %>%
   left_join(atc_codes %>% rename(ATC_chapter = ATC)) %>%
-
-ggplot() + 
-  #geom_tile(aes(atc, gene_name, fill=phenotype))
-  #geom_tile(aes(gene_name, atc, fill=phenotype))
-  #geom_point(aes(gene_name, atc_description, color=phenotype, size=-log10(P), alpha=significant)) +
-  geom_point(aes(gene_name, ATC, color=phenotype, size=-log10(P), alpha=significant)) +
-  facet_grid(ATC_chapter~tier, scales="free", space="free") +
+  
+  ggplot() +
+  geom_point(aes(
+    gene_name,
+    ATC,
+    color = phenotype,
+    size = -log10(P),
+    alpha = significant
+  )) +
+  facet_grid(ATC_chapter ~ tier, scales = "free", space = "free") +
   theme_Publication() +
-  theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1, face="italic")) +
+  theme(axis.text.x = element_text(
+    angle = 90,
+    vjust = 0.5,
+    hjust = 1,
+    face = "italic"
+  )) +
   scale_color_manual(values = four_color_palette) +
   xlab("Gene") +
   ylab("Drug") +
   ggtitle("VIP PGx gene-drug associations in GWAS") +
-  scale_alpha_discrete(range= c(0.5, 1))
+  scale_alpha_discrete(range = c(0.5, 1))
 
 
-ggsave("/Users/gregmcinnes/projects/gwas_in_pgx/manuscript/figures/figure_5.png", width=8.5, height=8)
-```
-
-
-```{r}
-pgx_gwas_hits %>% filter(PUBMEDID == 19483685)
-vip_gene_hits %>% filter(atc == "N06AA")
-
+ggsave("figures/figure_5.png", width = 8.5, height = 8)
 ```
 
 
 
 
-Supplemental figures
+
+
+### Supplemental figures
 
 
 Counts for ADR vs Efficacy studies
@@ -1829,99 +1519,16 @@ ggplot(study_sample_sizes %>% filter(!is.na(year))) +
   ylab("Sample size (log scale)") +
   xlab("Studied phenotype") +
   ggtitle("Sample size of PGx GWAS for Efficacy or ADRs") +
-  ggsave("/Users/gregmcinnes/projects/gwas_in_pgx/manuscript/figures/efficacy_vs_adr_sample_size.png", width=8, height=4)
-```
-
-
-```{r}
-side_effect_sample_size <- study_sample_sizes %>% filter(phenotype == "side effects") %>% select(pubmed_id, n) %>% unique %>% select(n) %>% pull
-efficacy_sample_size <- study_sample_sizes %>% filter(phenotype == "efficacy") %>% select(pubmed_id, n) %>% unique %>% select(n) %>% pull
-t.test(side_effect_sample_size, efficacy_sample_size)
-
-median(side_effect_sample_size)
-median(efficacy_sample_size)
-
-mean(side_effect_sample_size)
-mean(efficacy_sample_size)
+  ggsave("figures/efficacy_vs_adr_sample_size.png", width=8, height=4)
 ```
 
 
 
-```{r}
-has_significant_hits <- cat_full %>%
-  filter(PUBMEDID %in% study_details$pubmed_id) %>%
-  #filter(P.VALUE < 5e-08) %>%
-  mutate(significant = case_when(P.VALUE <= 5e-08 ~ TRUE, T~F)) %>%
-  mutate(significant = ordered(significant, levels=c(F, T))) %>%
-  select(PUBMEDID, STUDY.ACCESSION, significant) %>%
-  group_by(PUBMEDID) %>%
-  filter(significant == max(significant)) %>%
-  unique %>%
-  left_join(study_sample_sizes %>% select(pubmed_id, STUDY.ACCESSION, n) %>% rename(sample_size=n, PUBMEDID=pubmed_id)) %>%
-  filter(PUBMEDID %in% study_details$pubmed_id) %>%
-  unique
-  head
-
-study_details %>%
-  head
 
 
 
-  group_by(PUBMEDID) %>%
-  tally %>%
-  rename(n_sig=n) %>%
-  left_join(sample_size_data %>% select(PUBMEDID, n) %>% rename(sample_size=n)) %>%
-  ggplot(aes(sample_size, n_sig)) +
-  geom_point() +
-    scale_y_log10() 
-```
 
-
-
-```{r}
-
-cat_full %>% 
-  #filter(PUBMEDID == 32131869) %>% 
-  filter(PUBMEDID %in% study_details$pubmed_id) %>%
-  select(PUBMEDID, INITIAL.SAMPLE.SIZE, P.VALUE) %>%
-  left_join(cat_anc %>% filter(STAGE=="initial") %>% select(PUBMEDID, INITIAL.SAMPLE.DESCRIPTION, NUMBER.OF.INDIVDUALS) %>% rename(INITIAL.SAMPLE.SIZE = INITIAL.SAMPLE.DESCRIPTION))
-
-cat_anc %>% filter(PUBMEDID == 31806883)
-
-
-study_sample_counts <- cat_anc %>%
-  filter(PUBMEDID %in% study_details$pubmed_id) %>%
-  select(PUBMEDID, STUDY.ACCESSION, INITIAL.SAMPLE.DESCRIPTION, NUMBER.OF.INDIVDUALS) %>%
-  group_by(PUBMEDID, STUDY.ACCESSION, INITIAL.SAMPLE.DESCRIPTION) %>%
-  summarize(total_subjects = sum(NUMBER.OF.INDIVDUALS))
-  unique
-
-max_subjects = max(study_sample_counts$total_subjects)
-  
-cat_full %>% 
-  #filter(PUBMEDID == 32131869) %>% 
-  filter(PUBMEDID %in% study_details$pubmed_id) %>%
-  mutate(significant = case_when(P.VALUE <= 5e-08 ~ 1, T~0)) %>%
-  #mutate(significant = ordered(significant, levels=c(F, T))) %>%
-  select(PUBMEDID, significant) %>%
-  group_by(PUBMEDID) %>%
-  filter(significant == max(significant)) %>%
-  select(PUBMEDID, significant) %>%
-  left_join(study_sample_counts) %>%
-  unique %>%
-  left_join(study_details %>% rename(PUBMEDID=pubmed_id) %>% select(PUBMEDID, phenotype)) %>%
-  #mutate(bin = ntile(total_subjects, 10)) %>%
-  mutate(group = cut(total_subjects, breaks = seq(0, max_subjects, 5000))) %>%
-  group_by(group) %>%
-  mutate(counter=1) %>%
-  summarise(n = sum(counter), n_sig=sum(significant)) %>%
-  mutate(hit_fraction = n_sig/n) %>%
-  ggplot() +
-  geom_bar(aes(group, hit_fraction), stat="identity")
-
-```
-
-```{r}
+```{r message=FALSE, warning=FALSE}
 cat_full %>% 
   #filter(PUBMEDID == 32131869) %>% 
   filter(PUBMEDID %in% study_details$pubmed_id) %>%
@@ -1946,10 +1553,10 @@ cat_full %>%
   scale_color_brewer(palette = "Spectral") +
   scale_x_log10()
 
-ggsave("/Users/gregmcinnes/projects/gwas_in_pgx/manuscript/figures/sample_size_vs_hits.png", width=8, height=4)
+ggsave("figures/sample_size_vs_hits.png", width=8, height=4)
 ```
 
-```{r}
+```{r message=FALSE, warning=FALSE}
 hit_counts <- cat_full %>% 
   #filter(PUBMEDID == 32131869) %>% 
   filter(PUBMEDID %in% study_details$pubmed_id) %>%
@@ -1971,9 +1578,4 @@ hit_counts <- cat_full %>%
 cor(log10(hit_counts$total_subjects), hit_counts$n_hits)
 ```
 
-```{r}
-hit_counts %>% arrange(-total_subjects)
-
-hit_counts %>% filter(year == 2012) %>% arrange(-n_hits)
-```
 
